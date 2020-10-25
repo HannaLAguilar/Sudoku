@@ -10,28 +10,28 @@ width, height = 450, 450
 img = cv2.resize(img_original, (width, height))
 
 # Image preprocessing
-img_threshold0 = pre_processing0(img)
-img_threshold1 = pre_processing1(img)
-img_stack = np.hstack((img_threshold0, img_threshold1))
+img_threshold = pre_processing1(img)
 plt.figure()
-plt.imshow(img_stack, cmap='gray')
+plt.imshow(img_threshold, cmap='gray')
 
-# All Contours
-contours0, img_contours0 = all_contours(img_threshold0, img)
-contours1, img_contours1 = all_contours(img_threshold1, img)
-img_contours_stack = np.hstack((img_contours0, img_contours1))
-plt.figure()
-plt.imshow(img_contours_stack)
-
-# Sudoku contour
-sudoku_contour, points = right_contour_(contours0)
+# Contours
+contours, img_contours = all_contours(img_threshold, img)  # all contours
+sudoku_contour, points = right_contour_(contours)  # sudoku contour
 img_sudoku_contours = img.copy()
+img_points = img.copy()
 cv2.drawContours(img_sudoku_contours, sudoku_contour, -1, 255, 2)
+cv2.drawContours(img_points, points, -1, 255, 15)
+
+# Visualization
+img_stack_contours = np.hstack((img, img_contours, img_sudoku_contours, img_points))
 plt.figure()
-plt.imshow(img_sudoku_contours)
+plt.imshow(img_stack_contours)
 
 # WarpPespective
-pts1 = reorder_points(points)
-
-
+pts1 = np.float32(reorder_points(points))
+pts2 = np.float32([[0, 0], [width, 0], [0, height], [width, height]])
+matrix = cv2.getPerspectiveTransform(pts1, pts2)
+img_warp = cv2.warpPerspective(img, matrix, (width, height))
+plt.figure()
+plt.imshow(img_warp)
 
