@@ -42,3 +42,23 @@ def right_contour_(contours):
                 max_area = area
     return right_contour, points
 
+
+def reorder_points(points):
+    points = points.reshape(-1, 2)
+    sum = points.sum(axis=1)
+    pt1 = points[np.argmin(sum)]
+    pt4 = points[np.argmax(sum)]
+    diff = np.diff(points, axis=1)
+    pt2 = points[np.argmax(diff)]
+    pt3 = points[np.argmin(diff)]
+
+    order_points = np.array([pt1, pt2, pt3, pt4])
+    return order_points
+
+
+
+
+
+
+
+
