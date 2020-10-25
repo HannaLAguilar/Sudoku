@@ -4,7 +4,7 @@ import cv2
 from utils import *
 
 # Image
-img_path = '../imgs/1.jpg'
+img_path = 'imgs/1.jpg'
 img_original = cv2.imread(img_path)[:, :, ::-1]
 width, height = 450, 450
 img = cv2.resize(img_original, (width, height))
