@@ -52,8 +52,8 @@ def reorder_points(points):
     pt2 = points[np.argmin(diff)]
     pt3 = points[np.argmax(diff)]
 
-    order_points = np.array([pt1, pt2, pt3, pt4])
-    return order_points
+    ordered_points = np.array([pt1, pt2, pt3, pt4])
+    return ordered_points
 
 
 

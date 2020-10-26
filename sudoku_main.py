@@ -2,9 +2,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import cv2
 from utils import *
+import pytesseract
 
 # Image
-img_path = 'imgs/2.jpg'
+img_path = 'imgs/4.jpg'
 img_original = cv2.imread(img_path)[:, :, ::-1]
 width, height = 450, 450
 img = cv2.resize(img_original, (width, height))
