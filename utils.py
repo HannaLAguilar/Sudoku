@@ -28,8 +28,8 @@ def all_contours(img, img_color):
 
 
 def right_contour_(contours):
-    right_contour = np.array([])
-    points = np.array([])
+    right_contour = None
+    points = None
     max_area = 0
     for cnt in contours:
         area = cv2.contourArea(cnt)
@@ -56,9 +56,15 @@ def reorder_points(points):
     return ordered_points
 
 
+def split_box_numbers(img):
+    rows = np.vsplit(img, 9)
+    num_boxes = []
+    for row in rows:
+        num_col = np.hsplit(row, 9)
+        for num in num_col:
+            num_boxes.append(num)
+    return num_boxes
 
-
-
-
+# plt.figure(), plt.imshow(rows[0], cmap='gray')
 
 
