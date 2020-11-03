@@ -38,12 +38,9 @@ class CNN(nn.Module):
     def forward(self, x):
         x = F.relu(self.conv1(x))  # first cnn
         x = self.maxpool1(x)
-
         x = F.relu(self.conv2(x))  # second cnn
         x = self.maxpool2(x)
-
         x = x.view(x.size(0), -1)  # flatten output
-
         x = self.fc(x)  # fully connected
         return x
 
