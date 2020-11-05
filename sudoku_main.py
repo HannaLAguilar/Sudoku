@@ -1,8 +1,5 @@
-import numpy as np
 import matplotlib.pyplot as plt
-import cv2
 from utils import *
-import pytesseract
 
 # Image
 img_path = 'imgs/1.jpg'

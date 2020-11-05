@@ -1,5 +1,4 @@
 import numpy as np
-import matplotlib.pyplot as plt
 import cv2
 
 
@@ -65,6 +64,5 @@ def split_box_numbers(img):
             num_boxes.append(num)
     return num_boxes
 
-# plt.figure(), plt.imshow(rows[0], cmap='gray')
 
 
