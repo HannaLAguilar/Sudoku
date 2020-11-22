@@ -5,104 +5,6 @@ import torchvision.transforms as transforms
 from PIL import Image
 
 
-def preprocessImage(image, skip_dilation=False):
-    preprocess = cv2.adaptiveThreshold(image, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 101, 2)
-    if not skip_dilation:
-        kernel = np.array([[0, 1, 0], [1, 2, 1], [0, 1, 0]], dtype=np.uint8)
-        preprocess = cv2.dilate(preprocess, kernel)
-    return preprocess
-
-
-def centeringImage(image):
-    rows = image.shape[0]
-    for i in range(rows):
-        # Floodfilling the outermost layer
-        cv2.floodFill(image, None, (0, i), 0)
-        cv2.floodFill(image, None, (i, 0), 0)
-        cv2.floodFill(image, None, (rows - 1, i), 0)
-        cv2.floodFill(image, None, (i, rows - 1), 0)
-
-    top = None
-    bottom = None
-    left = None
-    right = None
-    threshold = 50
-    center = rows // 2
-    for i in range(center, rows):
-        if bottom is None:
-            temp = image[i]
-            if sum(temp) < threshold or i == rows - 1:
-                bottom = i
-        if top is None:
-            temp = image[rows - i - 1]
-            if sum(temp) < threshold or i == rows - 1:
-                top = rows - i - 1
-        if left is None:
-            temp = image[:, rows - i - 1]
-            if sum(temp) < threshold or i == rows - 1:
-                left = rows - i - 1
-        if right is None:
-            temp = image[:, i]
-            if sum(temp) < threshold or i == rows - 1:
-                right = i
-    if (top == left and bottom == right):
-        return 0, image
-
-    image = image[top - 5:bottom + 5, left - 5:right + 5]
-    return 1, image
-
-
-def extract_digit(img, rect, offset=10):
-    """
-        extracts the part of the image enclosed within the rectangle specified by rect
-            img: img of a cell in the sudoku grid
-            rect: cordinates of the rectangle to be extracted
-            offset: additional padding given to the rectangle
-    """
-    (x, y, w, h) = rect
-    digit = img[y - offset:y + h + offset, x - offset:x + w + offset]
-    return digit
-
-
-def shrink_img(cell):
-    """
-        if no digit is found within the cell then the cell is mostly blank, so shrink the cell so that
-        remenants of the edges do not hinder our neural network from making the right prediction
-    """
-    height, width = cell.shape
-    p1 = int(0.11 * height)
-    p2 = int(0.11 * width)
-
-    # shrinking the cell in all sides
-    cell_new = cell[p1:height - p1, p2:width - p2]
-    return cell_new
-
-
-def get_digit(img):
-    """
-        function to find the digit within each cell
-            img: the cell in the sudoku grid
-    """
-    # img = img[4:img.shape[0] - 4, 4:img.shape[1] - 4]
-    thresh = cv2.threshold(img, 0, 50, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (1, 1))
-    thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
-    cnts, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL,
-                               cv2.CHAIN_APPROX_SIMPLE)
-    digit = []
-    for c in cnts:
-        # compute the bounding box of the contour
-        (x, y, w, h) = cv2.boundingRect(c)
-        # if the contour is sufficiently large, it must be a digit (assumtion)
-        if w >= 7 and (h >= 15 and h <= 80) and ((x > 0 and x < img.shape[1]) and (y > 0 and y < img.shape[0])):
-            rect = [x, y, w, h]
-            digit = extract_digit(img, rect)
-    if len(digit):
-        return digit
-    else:
-        return img
-
-
 def pre_processing(img):
     img_gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
     img_blur = cv2.GaussianBlur(img_gray, (7, 7), 0)
@@ -156,20 +58,36 @@ def split_box_numbers(img):
     return num_boxes
 
 
-def prediction(img, model_cnn, model_state, cut=True, device='cpu'):
+def only_digit(img, offset=10):
+    # img = img[4:img.shape[0] - 4, 4:img.shape[1] - 4]
+    thresh = cv2.threshold(img, 0, 50, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (1, 1))
+    thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
+    cnts, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    digit = []
+    for c in cnts:
+        (x, y, w, h) = cv2.boundingRect(c)
+        if w >= 7 and (15 <= h <= 80) and ((0 < x < img.shape[1]) and (0 < y < img.shape[0])):
+            rect = [x, y, w, h]
+            (x, y, w, h) = rect
+            digit = img[y - offset:y + h + offset, x - offset:x + w + offset]
+    if len(digit):
+        return digit
+    else:
+        return img
+
+
+def prediction(img, model_cnn, model_state, cut=True):
     # image processing
     if cut:
-        img = img[5:img.shape[0] - 4, 4:img.shape[1] - 4]
-    # img = img[10:, 10:]
+        img = img[4:img.shape[0] - 4, 4:img.shape[1] - 4]
     img = Image.fromarray(np.uint8(img))
     transform = transforms.Compose([transforms.Resize([32, 32]), transforms.ToTensor()])
-
     img_tensor = transform(img).unsqueeze(0)
-    img_np = img_tensor.numpy().reshape(32, 32)
-    # img_tensor = torch.from_numpy(img_resize).view(1, 1, 32, 32).type('torch.FloatTensor')
+    # img_np = img_tensor.numpy().reshape(32, 32)
 
     # model
-    device = torch.device(device)
+    device = torch.device('cpu')
     model = model_cnn
     model.to(device)
     state_dict = torch.load(model_state)
@@ -181,11 +99,35 @@ def prediction(img, model_cnn, model_state, cut=True, device='cpu'):
         output = model(img_tensor)
         output_sof = torch.softmax(output, dim=1)
         prob, pred = torch.max(output_sof, 1)
-    if prob.item() >= 0.5:
-        pred = pred.item()
+        prob, pred = prob.item(), pred.item()
+    if prob >= 0.55:
+        pred = pred
     else:
         pred = 0
-    return pred, img_np, prob.item()
+    return prob, pred
+
+
+def get_numbers(numbers_box, model_cnn, model_state):
+    numbers = []
+    for img in numbers_box:
+        img = only_digit(img)
+        prob, pred = prediction(img, model_cnn, model_state)
+        numbers.append(pred)
+    numbers = np.array(numbers).reshape(9, 9)
+    return numbers
+
+
+def displayNumbers(img,numbers,color = (0,255,0)):
+    secW = int(img.shape[1]/9)
+    secH = int(img.shape[0]/9)
+    for x in range (0,9):
+        for y in range (0,9):
+            if numbers[(y*9)+x] != 0 :
+                 cv2.putText(img, str(numbers[(y*9)+x]),
+                               (x*secW+int(secW/2)-10, int((y+0.8)*secH)), cv2.FONT_HERSHEY_COMPLEX_SMALL,
+                            2, color, 2, cv2.LINE_AA)
+    return img
+
 
 
 def stackImages(imgArray, scale):
