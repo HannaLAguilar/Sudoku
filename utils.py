@@ -1,18 +1,109 @@
 import numpy as np
 import cv2
+import torch
+import torchvision.transforms as transforms
+from PIL import Image
 
 
-def pre_processing0(img):
-    img_gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-    img_blur = cv2.GaussianBlur(img_gray, (7, 7), 0)
-    img_canny = cv2.Canny(img_blur, 100, 200)
-    kernel = np.ones((5, 5), np.uint8)
-    img_dila = cv2.dilate(img_canny, kernel, iterations=1)
-    img_threshold = cv2.erode(img_dila, kernel, iterations=1)
-    return img_threshold
+def preprocessImage(image, skip_dilation=False):
+    preprocess = cv2.adaptiveThreshold(image, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 101, 2)
+    if not skip_dilation:
+        kernel = np.array([[0, 1, 0], [1, 2, 1], [0, 1, 0]], dtype=np.uint8)
+        preprocess = cv2.dilate(preprocess, kernel)
+    return preprocess
 
 
-def pre_processing1(img):
+def centeringImage(image):
+    rows = image.shape[0]
+    for i in range(rows):
+        # Floodfilling the outermost layer
+        cv2.floodFill(image, None, (0, i), 0)
+        cv2.floodFill(image, None, (i, 0), 0)
+        cv2.floodFill(image, None, (rows - 1, i), 0)
+        cv2.floodFill(image, None, (i, rows - 1), 0)
+
+    top = None
+    bottom = None
+    left = None
+    right = None
+    threshold = 50
+    center = rows // 2
+    for i in range(center, rows):
+        if bottom is None:
+            temp = image[i]
+            if sum(temp) < threshold or i == rows - 1:
+                bottom = i
+        if top is None:
+            temp = image[rows - i - 1]
+            if sum(temp) < threshold or i == rows - 1:
+                top = rows - i - 1
+        if left is None:
+            temp = image[:, rows - i - 1]
+            if sum(temp) < threshold or i == rows - 1:
+                left = rows - i - 1
+        if right is None:
+            temp = image[:, i]
+            if sum(temp) < threshold or i == rows - 1:
+                right = i
+    if (top == left and bottom == right):
+        return 0, image
+
+    image = image[top - 5:bottom + 5, left - 5:right + 5]
+    return 1, image
+
+
+def extract_digit(img, rect, offset=10):
+    """
+        extracts the part of the image enclosed within the rectangle specified by rect
+            img: img of a cell in the sudoku grid
+            rect: cordinates of the rectangle to be extracted
+            offset: additional padding given to the rectangle
+    """
+    (x, y, w, h) = rect
+    digit = img[y - offset:y + h + offset, x - offset:x + w + offset]
+    return digit
+
+
+def shrink_img(cell):
+    """
+        if no digit is found within the cell then the cell is mostly blank, so shrink the cell so that
+        remenants of the edges do not hinder our neural network from making the right prediction
+    """
+    height, width = cell.shape
+    p1 = int(0.11 * height)
+    p2 = int(0.11 * width)
+
+    # shrinking the cell in all sides
+    cell_new = cell[p1:height - p1, p2:width - p2]
+    return cell_new
+
+
+def get_digit(img):
+    """
+        function to find the digit within each cell
+            img: the cell in the sudoku grid
+    """
+    # img = img[4:img.shape[0] - 4, 4:img.shape[1] - 4]
+    thresh = cv2.threshold(img, 0, 50, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (1, 1))
+    thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
+    cnts, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL,
+                               cv2.CHAIN_APPROX_SIMPLE)
+    digit = []
+    for c in cnts:
+        # compute the bounding box of the contour
+        (x, y, w, h) = cv2.boundingRect(c)
+        # if the contour is sufficiently large, it must be a digit (assumtion)
+        if w >= 7 and (h >= 15 and h <= 80) and ((x > 0 and x < img.shape[1]) and (y > 0 and y < img.shape[0])):
+            rect = [x, y, w, h]
+            digit = extract_digit(img, rect)
+    if len(digit):
+        return digit
+    else:
+        return img
+
+
+def pre_processing(img):
     img_gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
     img_blur = cv2.GaussianBlur(img_gray, (7, 7), 0)
     img_threshold = cv2.adaptiveThreshold(img_blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2)
@@ -34,7 +125,7 @@ def right_contour_(contours):
         area = cv2.contourArea(cnt)
         if area > 50:
             perimeter = cv2.arcLength(cnt, True)
-            box = cv2.approxPolyDP(cnt, perimeter*0.1, True)
+            box = cv2.approxPolyDP(cnt, perimeter * 0.1, True)
             if area > max_area and len(box) == 4:
                 right_contour = [cnt]
                 points = box
@@ -65,4 +156,62 @@ def split_box_numbers(img):
     return num_boxes
 
 
+def prediction(img, model_cnn, model_state, cut=True, device='cpu'):
+    # image processing
+    if cut:
+        img = img[5:img.shape[0] - 4, 4:img.shape[1] - 4]
+    # img = img[10:, 10:]
+    img = Image.fromarray(np.uint8(img))
+    transform = transforms.Compose([transforms.Resize([32, 32]), transforms.ToTensor()])
 
+    img_tensor = transform(img).unsqueeze(0)
+    img_np = img_tensor.numpy().reshape(32, 32)
+    # img_tensor = torch.from_numpy(img_resize).view(1, 1, 32, 32).type('torch.FloatTensor')
+
+    # model
+    device = torch.device(device)
+    model = model_cnn
+    model.to(device)
+    state_dict = torch.load(model_state)
+    model.load_state_dict(state_dict)
+
+    # predict
+    model.eval()
+    with torch.no_grad():
+        output = model(img_tensor)
+        output_sof = torch.softmax(output, dim=1)
+        prob, pred = torch.max(output_sof, 1)
+    if prob.item() >= 0.5:
+        pred = pred.item()
+    else:
+        pred = 0
+    return pred, img_np, prob.item()
+
+
+def stackImages(imgArray, scale):
+    rows = len(imgArray)
+    cols = len(imgArray[0])
+    rowsAvailable = isinstance(imgArray[0], list)
+    width = imgArray[0][0].shape[1]
+    height = imgArray[0][0].shape[0]
+    if rowsAvailable:
+        for x in range(0, rows):
+            for y in range(0, cols):
+                imgArray[x][y] = cv2.resize(imgArray[x][y], (0, 0), None, scale, scale)
+                if len(imgArray[x][y].shape) == 2: imgArray[x][y] = cv2.cvtColor(imgArray[x][y], cv2.COLOR_GRAY2RGB)
+        imageBlank = np.zeros((height, width, 3), np.uint8)
+        hor = [imageBlank] * rows
+        hor_con = [imageBlank] * rows
+        for x in range(0, rows):
+            hor[x] = np.hstack(imgArray[x])
+            hor_con[x] = np.concatenate(imgArray[x])
+        ver = np.vstack(hor)
+        ver_con = np.concatenate(hor)
+    else:
+        for x in range(0, rows):
+            imgArray[x] = cv2.resize(imgArray[x], (0, 0), None, scale, scale)
+            if len(imgArray[x].shape) == 2: imgArray[x] = cv2.cvtColor(imgArray[x], cv2.COLOR_GRAY2RGB)
+        hor = np.hstack(imgArray)
+        hor_con = np.concatenate(imgArray)
+        ver = hor
+    return ver
