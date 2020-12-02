@@ -129,7 +129,6 @@ def displayNumbers(img,numbers,color = (0,255,0)):
     return img
 
 
-
 def stackImages(imgArray, scale):
     rows = len(imgArray)
     cols = len(imgArray[0])

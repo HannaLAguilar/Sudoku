@@ -2,9 +2,11 @@ import matplotlib.pyplot as plt
 from utils import *
 from model_cnn import *
 from p import photo_
+from pathlib import Path
+
 
 # Image preprocessing
-img_path = 'imgs/4.jpg'
+img_path = 'imgs/7.jpg'
 img_original = cv2.imread(img_path)[:, :, ::-1]
 width, height = 450, 450
 img = cv2.resize(img_original, (width, height))
@@ -31,6 +33,7 @@ numbers = get_numbers(numbers_box, Classifier(), 'classifier_digit.pt')
 print(numbers)
 photo_(img_path, numbers)
 l = [ii for ii in numbers.ravel()]
+
 
 # Visualization
 img_stack = ([img, img_threshold, img_contours, img_points],
