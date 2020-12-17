@@ -5,14 +5,14 @@ class Classifier(nn.Module):
     def __init__(self):
         super(Classifier, self).__init__()
         self.layer1 = nn.Sequential(
-            nn.Conv2d(1, 32, kernel_size=3, padding=1),
+            nn.Conv2d(1, 32, 3, padding=1),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2))
+            nn.MaxPool2d(2, 2))
         self.layer2 = nn.Sequential(
-            nn.Conv2d(32, 64, kernel_size=3, padding=1),
+            nn.Conv2d(32, 64, 3, padding=1),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2))
-        self.dropout = nn.Dropout(p=0.40)
+            nn.MaxPool2d(2, 2))
+        self.dropout = nn.Dropout(0.40)
         self.fc1 = nn.Sequential(
             nn.Linear(8 * 8 * 64, 128),
             nn.ReLU())
