@@ -13,6 +13,21 @@ sudoku_ = np.array([[1, 8, 6, 0, 0, 0, 0, 0, 5],
 """
 
 
+def solve(sudoku):
+    find = find_empty(sudoku)
+    if not find:
+        return True
+    else:
+        y, x = find
+    for n in range(1, 10):
+        if is_possible(sudoku, y, x, n):
+            sudoku[y][x] = n
+            if solve(sudoku):
+                return True
+            sudoku[y][x] = 0
+    return False
+
+
 def find_empty(sudoku):
     for y in range(9):
         for x in range(9):
@@ -37,16 +52,4 @@ def is_possible(sudoku, y, x, n):
     return True
 
 
-def solve(sudoku):
-    find = find_empty(sudoku)
-    if not find:
-        return True
-    else:
-        y, x = find
-    for n in range(1, 10):
-        if is_possible(sudoku, y, x, n):
-            sudoku[y][x] = n
-            if solve(sudoku):
-                return True
-            sudoku[y][x] = 0
-    return False
+
