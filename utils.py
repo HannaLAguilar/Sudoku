@@ -84,7 +84,6 @@ def prediction(img, model_cnn, model_state, cut=True):
     img = Image.fromarray(np.uint8(img))
     transform = transforms.Compose([transforms.Resize([32, 32]), transforms.ToTensor()])
     img_tensor = transform(img).unsqueeze(0)
-    # img_np = img_tensor.numpy().reshape(32, 32)
 
     # model
     device = torch.device('cpu')
@@ -117,7 +116,7 @@ def get_numbers(numbers_box, model_cnn, model_state):
     return numbers
 
 
-def displayNumbers(img,numbers,color = (0,255,0)):
+def displayNumbers(img,numbers,color = (255,0,0)):
     secW = int(img.shape[1]/9)
     secH = int(img.shape[0]/9)
     for x in range (0,9):
