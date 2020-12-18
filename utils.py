@@ -116,7 +116,7 @@ def get_numbers(numbers_box, model_cnn, model_state):
     return numbers
 
 
-def img_numbers(img, numbers, color=(0, 255, 0)):
+def img_numbers(img, numbers, color=(255, 0, 255)):
     width = int(img.shape[0] / 9)
     for x in range(0, 9):
         for y in range(0, 9):
@@ -126,6 +126,7 @@ def img_numbers(img, numbers, color=(0, 255, 0)):
     return img
 
 
+# function creates by murtazahassan
 def stackImages(imgArray, scale):
     rows = len(imgArray)
     cols = len(imgArray[0])
