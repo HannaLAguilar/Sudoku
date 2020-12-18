@@ -12,4 +12,4 @@ You can check it in this [repository](https://github.com/HannaLAguilar/Digit_cla
 ### Solve sudoku
 All the steps are summarized in the following picture:
  
-<img src="./imgs/Figure1.PNG" width=75% align="center">
+<img src="./imgs/Figure1.PNG" width=85% align="center">
